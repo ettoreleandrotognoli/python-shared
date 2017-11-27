@@ -1,11 +1,13 @@
+import socket
 from uuid import uuid4
 from typing import Iterator
 from typing import TypeVar
 from typing import Type
 
 
-def make_client_id() -> str:
-    pass
+def make_client_id(hostname=None, glue=':') -> str:
+    hostname = hostname or socket.gethostname()
+    return glue.join([hostname, uuid4().hex()])
 
 
 def make_resource_name(obj, glue=':') -> str:
@@ -16,10 +18,10 @@ E = TypeVar('E')
 
 
 class SharedResourcesManager(object):
-    def list_nodes(self) -> Iterator:
+    def get_nodes(self) -> Iterator:
         raise NotImplementedError()
 
-    def list_resources(self) -> Iterator:
+    def get_resources(self) -> Iterator:
         raise NotImplementedError()
 
     def get_resource(self, resource_id, resource_class: Type[E] = None) -> E:
@@ -29,24 +31,3 @@ class SharedResourcesManager(object):
         raise NotImplementedError()
 
 
-class LocalResourcesManager(SharedResourcesManager):
-    resources = None
-
-    def __init__(self, resources=None):
-        self.resources = resources or dict()
-
-    def call(self, resource, method, *args, **kwargs):
-        return getattr(self.resources[resource], method)(*args, **kwargs)
-
-    def getattr(self, resource, attr):
-        return getattr(self.resources[resource], attr)
-
-    def setattr(self, resource, attr, value):
-        return setattr(self.resources[resource], attr, value)
-
-    def find_instances_of(self, types):
-        return [name for name, value in self.resources.items() if isinstance(value, types)]
-
-    def register(self, obj, name=None, type=None):
-        type = type or obj.__class__
-        name = name or make_resource_name(obj)
