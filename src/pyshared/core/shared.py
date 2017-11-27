@@ -1,7 +1,9 @@
-from uuid import uuid4
 from typing import Iterator
-from typing import TypeVar
 from typing import Type
+from typing import TypeVar
+from uuid import uuid4
+
+from rx import Observer
 
 
 def make_client_id() -> str:
@@ -50,3 +52,28 @@ class LocalResourcesManager(SharedResourcesManager):
     def register(self, obj, name=None, type=None):
         type = type or obj.__class__
         name = name or make_resource_name(obj)
+
+
+class ResourceServer(Observer):
+    def __init__(self, resource_map: dict):
+        self.resource_map = resource_map
+
+    def on_completed(self):
+        pass
+
+    def on_error(self, error):
+        pass
+
+    def on_next(self, value):
+        resource_id, args, kwargs, callback = value
+        if isinstance(resource_id, str):
+            resource_id = [resource_id]
+        resource = self.resource_map.get(resource_id[0], None)
+        if not resource:
+            raise Exception()
+        action = resource
+        for key in resource_id[1:]:
+            action = getattr(action, key)
+        if not action:
+            raise Exception()
+        callback(action(*args, **kwargs))
