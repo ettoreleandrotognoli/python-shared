@@ -2,6 +2,7 @@ __author__ = 'ettore'
 __version__ = (0, 0, 0)
 
 import os
+
 from pip.req import parse_requirements
 from setuptools import setup, find_packages
 
@@ -23,7 +24,7 @@ setup(
     license='BSD',
     author=u'Éttore Leandro Tognoli',
     author_email='ettore.leandro.tognoli@gmail.com',
-    packages=find_packages(exclude=['tests', 'examples']),
+    packages=find_packages(exclude=['src/tests', 'src/examples']),
     include_package_data=True,
     keywords=[],
     classifiers=[
