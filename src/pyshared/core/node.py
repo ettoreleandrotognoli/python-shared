@@ -1,4 +1,7 @@
 class Node(object):
+    def info(self) -> dict:
+        raise NotImplementedError()
+
     def call(self, resource, *args, **kwargs):
         raise NotImplementedError()
 
