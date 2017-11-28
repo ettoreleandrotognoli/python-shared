@@ -2,27 +2,61 @@ import json
 import socket
 import threading
 
+from rx import Observable
 from rx import Observer
+from rx.subjects import Subject
 
 
-class TCPServer(object):
-    encoding = 'utf-8'
-    serializer = json
-
-    def __init__(self, observer: Observer, buffer_size: int = 2 ** 10):
-        self.running = False
-        self.thread = None
-        self.buffer_size = buffer_size
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.observer = observer
-
-    def connect(self, ip: str, port: int, backlog: int = 1):
-        self.socket.bind((ip, port))
-        self.socket.listen(backlog)
+class TCPMixin(object):
+    def __init__(self, serializer, encoding):
+        self.serializer = serializer
+        self.encoding = encoding
 
     def parse_data(self, data) -> dict:
         parsed_data = self.serializer.loads(data.decode(self.encoding))
         return parsed_data
+
+    def prepare_data(self, data):
+        prepared = self.serializer.dumps(data) + "\n"
+        return prepared.encode(self.encoding)
+
+
+class TCPServerConnAdapter(Observer):
+    def __init__(self, server: 'TCPServer', sock: socket.socket):
+        self.server = server
+        self.socket = sock
+
+    def on_next(self, value):
+        parsed = self.server.parse_data(value)
+        self.socket.send(parsed)
+
+    def on_error(self, error):
+        pass
+
+    def on_completed(self):
+        self.socket.close()
+
+
+class TCPServer(Observable, TCPMixin):
+    observer = None
+
+    def __init__(self,
+                 serializer=json,
+                 encoding='utf-8',
+                 buffer_size: int = 2 ** 10):
+        super().__init__(serializer, encoding)
+        self.running = False
+        self.thread = None
+        self.buffer_size = buffer_size
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.observer = Subject()
+
+    def subscribe(self, *args, **kwargs):
+        self.observer.subscribe(*args, **kwargs)
+
+    def connect(self, ip: str, port: int, backlog: int = 1):
+        self.socket.bind((ip, port))
+        self.socket.listen(backlog)
 
     def start(self):
         self.thread = threading.Thread(target=self.loop)
@@ -41,15 +75,13 @@ class TCPServer(object):
     def run(self):
         try:
             conn, addr = self.socket.accept()
-
-            def send_response(data):
-                conn.send(data)
-
+            observer = TCPServerConnAdapter(self, conn)
+            self.observer.on_next((observer, None))
             while 1:
                 data = conn.recv(self.buffer_size)
                 if not data: break
                 shared_package = self.parse_data(data)
-                self.observer.on_next((*shared_package, send_response))
+                self.observer.on_next((observer, shared_package))
             self.observer.on_completed()
         except Exception as ex:
             self.observer.on_error(ex)
@@ -57,39 +89,49 @@ class TCPServer(object):
             conn.close()
 
 
-class TCPClient(object):
-    encoding = 'utf-8'
-    serializer = json
-
-    def __init__(self, buffer_size=2 ** 10):
+class TCPClient(Observer, Observable, TCPMixin):
+    def __init__(self,
+                 serializer=json,
+                 encoding='utf-8',
+                 buffer_size=2 ** 10):
+        super().__init__(serializer, encoding)
+        self.running = False
         self.buffer_size = buffer_size
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.thread = None
+        self.observer = Subject()
 
     def connect(self, ip: str, port: int):
         self.socket.connect((ip, port))
 
+    def subscribe(self, *args, **kwargs):
+        self.observer.subscribe(*args, **kwargs)
+
+    def start(self):
+        self.thread = threading.Thread(target=self.loop())
+        self.thread.start()
+
+    def loop(self):
+        self.running = True
+        while self.running:
+            self.run()
+
+    def run(self):
+        data = self.socket.recv(self.buffer_size)
+        parsed = self.parse_data(data)
+        self.observer.on_next((self, parsed))
+
     def close(self):
         self.socket.close()
 
-    def prepare_data(self, data):
-        prepared = self.serializer.dumps(data) + "\n"
-        return prepared.encode(self.encoding)
+    def on_next(self, value):
+        self.send(value)
+
+    def on_completed(self):
+        self.close()
+
+    def on_error(self, error):
+        print(error)
 
     def send(self, data):
         self.socket.send(self.prepare_data(data))
-
-    def list_resources(self):
-        data = self.socket.recv(self.buffer_size)
-        return self.serializer.loads(data)
-
-    def call_resource(self, resource_id, *args, **kwargs):
-        if isinstance(resource_id, str):
-            resource_id = [resource_id]
-        package = self.call_template.format(
-            '.'.join(resource_id),
-            self.serializer.dumps(args),
-            self.serializer.dumps(kwargs),
-        )
-        self.socket.send(package)
-        data = self.socket.recv(self.buffer_size)
-        return self.serializer.loads(data)
