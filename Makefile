@@ -1,5 +1,5 @@
 test:
-	python -m unittest discover -s "tests/" -p "**.py"
+	python -m unittest discover -t "src/" -s "src/tests/" -p "**.py"
 
 coverage: clean
 	coverage run -a -m unittest discover -s "tests/" -p "**.py"
