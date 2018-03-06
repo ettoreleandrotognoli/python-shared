@@ -10,9 +10,15 @@ from pyshared.core.utils import fdebug
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
 
-port = 8000
+port = 8001
 optimal_thread_count = multiprocessing.cpu_count() + 1
 pool_scheduler = ThreadPoolScheduler(optimal_thread_count)
+
+
+@fdebug
+def print_and_return(v):
+    print('server receive', v)
+    return eval(v)
 
 
 class TCPTest(unittest.TestCase):
@@ -21,41 +27,42 @@ class TCPTest(unittest.TestCase):
     def test_send_receive(self):
         test_case = self
         test_package = dict(a=1, b=2)
-        client = TCPClient()
 
         @fdebug
         def process(con: TCPServerConnection):
-            con.start(pool_scheduler)
-            con.get_input_stream() \
+            print('new connection accepted')
+            Observable.create(con) \
                 .observe_on(pool_scheduler) \
-                .subscribe_on(pool_scheduler) \
-                .subscribe(lambda e: print('server receive ->', e))
-            Observable.from_([{'c': 3}, {'d': 4}]) \
-                .observe_on(pool_scheduler) \
+                .map(lambda e: e.decode('utf-8')) \
+                .map(json.loads) \
+                .map(print_and_return) \
                 .map(json.dumps) \
                 .map(lambda e: e.encode('utf-8')) \
                 .subscribe_on(pool_scheduler) \
-                .subscribe(con.get_output_stream())
+                .subscribe(con)
 
         server = TCPServer()
-        server.connect('0.0.0.0', port)
-        server.start(pool_scheduler)
-        server.client_stream.subscribe(on_next=process)
+        Observable.create(server.connect('0.0.0.0', port, backlog=10)) \
+            .observe_on(pool_scheduler) \
+            .subscribe_on(pool_scheduler) \
+            .subscribe(process)
 
-        client.connect('127.0.0.1', port)
-        client.start(pool_scheduler)
-        client.get_input_stream() \
-            .observe_on(pool_scheduler) \
-            .map(lambda e: e.deocde('utf-8')) \
-            .map(json.loads) \
-            .subscribe_on(pool_scheduler) \
-            .subscribe(on_next=lambda e: print('client receive -> ', e))
-        Observable.from_([{'a': 1}, {'b': 2}]) \
-            .observe_on(pool_scheduler) \
-            .map(json.dumps) \
-            .map(lambda e: e.encode('utf-8')) \
-            .subscribe_on(pool_scheduler) \
-            .subscribe(client.get_output_stream())
-        time.sleep(2)
+        for i in range(2):
+            client = TCPClient()
+            Observable.create(client.connect('127.0.0.1', port)) \
+                .observe_on(pool_scheduler) \
+                .map(lambda e: e.decode('utf-8')) \
+                .map(json.loads) \
+                .subscribe_on(pool_scheduler) \
+                .subscribe(on_next=lambda e: print('client-%d receive -> ' % i, e))
+            time.sleep(0.5)
+            Observable.from_(['time.sleep(0.2) or True', 'time.sleep(0.2) or \'fuu\''] * 3) \
+                .zip(Observable.interval(1000), lambda a, b: a) \
+                .map(fdebug(lambda e: print('client-%d sending ->' % i, e) or e)) \
+                .map(json.dumps) \
+                .map(lambda e: e.encode('utf-8')) \
+                .subscribe(client)
+        time.sleep(10)
         server.stop()
+        time.sleep(2)
         test_case.assertDictEqual(self.received_package, test_package)

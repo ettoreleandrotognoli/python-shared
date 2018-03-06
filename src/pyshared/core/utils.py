@@ -1,6 +1,10 @@
 from threading import current_thread
 
 
+def map_debug(event):
+    print(event)
+    return event
+
 def fdebug(func):
     func_name = func.__name__
 

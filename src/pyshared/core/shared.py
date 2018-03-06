@@ -1,4 +1,5 @@
 import socket
+from functools import partial
 from typing import Iterator
 from typing import Type
 from typing import TypeVar
@@ -16,21 +17,30 @@ def make_resource_name(obj, glue=':') -> str:
     return glue.join([obj.__class__.__name__, hex(id(obj)), uuid4().hex])
 
 
-E = TypeVar('E')
+class RemoteNode(object):
+    def __init__(self, manager: 'RemoteResourcesManager', resource_id):
+        self._manager = manager
+        self._resource_id = resource_id
+
+    def __getattr__(self, item):
+        return partial(self._manager.call, self._resource_id, item)
 
 
-class SharedResourcesManager(object):
+class RemoteResourcesManager(SharedResourcesManager):
+    def __init__(self, address: str, port: int):
+        pass
+
+    def call(self, resource_id, method, *args, **kwargs):
+        pass
+
     def get_nodes(self) -> Iterator:
-        raise NotImplementedError()
+        pass
 
-    def get_resources(self) -> Iterator:
-        raise NotImplementedError()
+    def get_resources(self):
+        pass
 
     def get_resource(self, resource_id, resource_class: Type[E] = None) -> E:
-        raise NotImplementedError()
-
-    def put_resource(self, resource_id, resource):
-        raise NotImplementedError()
+        pass
 
 
 class LocalResourcesManager(SharedResourcesManager):
@@ -42,18 +52,12 @@ class LocalResourcesManager(SharedResourcesManager):
     def call(self, resource, method, *args, **kwargs):
         return getattr(self.resources[resource], method)(*args, **kwargs)
 
-    def getattr(self, resource, attr):
-        return getattr(self.resources[resource], attr)
+    def get_resource(self, resource_id, resource_class: Type[E] = None) -> E:
+        return self.resources[resource_id]
 
-    def setattr(self, resource, attr, value):
-        return setattr(self.resources[resource], attr, value)
-
-    def find_instances_of(self, types):
-        return [name for name, value in self.resources.items() if isinstance(value, types)]
-
-    def register(self, obj, name=None, type=None):
-        type = type or obj.__class__
-        name = name or make_resource_name(obj)
+    def put_resource(self, resource, resource_id=None):
+        resource_id = resource_id or make_resource_name(resource)
+        self.resources[resource_id] = resource
 
 
 class ResourceServer(Observer):

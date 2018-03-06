@@ -1,11 +1,7 @@
-import json
 import socket
 
 from pyshared.core.utils import mdebug
-from rx import Observable
 from rx import Observer
-from rx.concurrency import ThreadPoolScheduler
-from rx.subjects import Subject
 
 
 class TCPServerConnection(Observer):
@@ -13,26 +9,19 @@ class TCPServerConnection(Observer):
         self.running = False
         self.server = server
         self.socket = sock
-        self._input_stream = Subject()
-        self._output_stream = Subject()
-
-    def get_input_stream(self) -> Observable:
-        return self._input_stream
-
-    input_stream = property(get_input_stream)
-
-    def get_output_stream(self) -> Observer:
-        return self._output_stream
-
-    output_stream = property(get_output_stream)
 
     @mdebug
-    def start(self, scheduler: ThreadPoolScheduler):
-        Observable.create(self.run) \
-            .subscribe_on(scheduler) \
-            .subscribe(self.input_stream)
-        self._output_stream.subscribe_on(scheduler) \
-            .subscribe(self)
+    def __call__(self, observer):
+        self.loop(observer)
+
+    def as_iterable(self):
+        self.running = True
+        while self.running:
+            data = self.socket.recv(self.server.buffer_size)
+            if not data:
+                self.close()
+                self.running = False
+            yield data
 
     @mdebug
     def loop(self, observer: Observer):
@@ -67,26 +56,30 @@ class TCPServerConnection(Observer):
 
 
 class TCPServer(object):
-    def __init__(self,
-                 serializer=json,
-                 encoding='utf-8',
-                 buffer_size: int = 2 ** 10):
+    def __init__(self, buffer_size: int = 2 ** 10):
         self.running = False
         self.thread = None
         self.buffer_size = buffer_size
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_stream = Subject()
 
     def connect(self, ip: str, port: int, backlog: int = 1):
         self.socket.bind((ip, port))
         self.socket.listen(backlog)
+        return self.loop
 
-    @mdebug
-    def start(self, scheduler: ThreadPoolScheduler):
-        Observable.create(self.loop) \
-            .map(lambda e: TCPServerConnection(self, e)) \
-            .subscribe_on(scheduler) \
-            .subscribe(self.client_stream)
+    def connect_as_iterable(self, ip: str, port: int, backlog: int = 1):
+        self.socket.bind((ip, port))
+        self.socket.listen(backlog)
+        return self.as_iterable()
+
+    def as_iterable(self):
+        self.running = True
+        while self.running:
+            try:
+                conn, addr = self.socket.accept()
+                yield TCPServerConnection(self, conn)
+            except Exception as ex:
+                raise ex
 
     @mdebug
     def loop(self, observer: Observer):
@@ -110,34 +103,14 @@ class TCPServer(object):
 
 
 class TCPClient(Observer):
-    def __init__(self,
-                 serializer=json,
-                 encoding='utf-8',
-                 buffer_size=2 ** 10):
+    def __init__(self, buffer_size=2 ** 10):
         self.running = False
         self.buffer_size = buffer_size
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.thread = None
-        self._input_stream = Subject()
-        self._output_stream = Subject()
 
     def connect(self, ip: str, port: int):
         self.socket.connect((ip, port))
-
-    def get_input_stream(self) -> Observable:
-        return self._input_stream
-
-    input_stream = property(get_input_stream)
-
-    def get_output_stream(self) -> Observer:
-        return self._output_stream
-
-    output_stream = property(get_output_stream)
-
-    @mdebug
-    def start(self, scheduler: ThreadPoolScheduler):
-        self._output_stream.subscribe_on(scheduler).subscribe(self)
-        Observable.create(self.loop).subscribe_on(scheduler).subscribe(self._input_stream)
+        return self.loop
 
     @mdebug
     def loop(self, observer: Observer):
