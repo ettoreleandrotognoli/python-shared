@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Dict
 from typing import Iterator
+from typing import List
 from typing import Tuple
 from typing import Type
 from typing import TypeVar
@@ -10,15 +11,90 @@ from rx import Observer, Observable
 E = TypeVar('E')
 
 
-class SharedResourcesManager(object, metaclass=ABCMeta):
+class ResourceProvider(object, metaclass=ABCMeta):
     @abstractmethod
     def get_resource(self, resource_id: str, resource_class: Type[E] = None) -> E:
         return NotImplemented
 
 
-class DefaultSharedResourcesManager(SharedResourcesManager):
-    def __init__(self, resources: Dict[str, object]):
+class ResourcesManagerListener(object, metaclass=ABCMeta):
+    @abstractmethod
+    def on_init(self, *args, **kwargs):
+        return NotImplemented
+
+    @abstractmethod
+    def on_finish(self, *args, **kwargs):
+        return NotImplemented
+
+    @abstractmethod
+    def on_add_resource(self, *args, **kwargs):
+        return NotImplemented
+
+
+NOOP = lambda *args, **kwargs: None
+
+
+class ResourcesManagerListenerAdapter(ResourcesManagerListener):
+    on_init = NOOP
+    on_finish = NOOP
+    on_add_resource = NOOP
+
+    def __init__(self, on_init=NOOP, on_finish=NOOP, on_add_resource=NOOP):
+        self.on_init = on_init
+        self.on_finish = on_finish
+        self.on_add_resource = on_add_resource
+
+
+class SharedResourcesManager(ResourceProvider):
+    @abstractmethod
+    def add_listener(self, listener: ResourcesManagerListener):
+        return NotImplemented
+
+    @abstractmethod
+    def remove_listener(self, listener: ResourcesManagerListener):
+        return NotImplemented
+
+    @abstractmethod
+    def get_resource(self, resource_id: str, resource_class: Type[E] = None) -> E:
+        return NotImplemented
+
+
+class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
+    def __init__(self, listeners=None):
+        self.listeners = listeners or []
+
+    def add_listener(self, listener: ResourcesManagerListener):
+        self.listeners.append(listener)
+
+    def remove_listener(self, listener: ResourcesManagerListener):
+        self.listeners.remove(listener)
+
+    def fire_on_init(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.on_init(*args, source=self, **kwargs)
+
+    def fire_on_finish(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.on_finish(*args, source=self, **kwargs)
+
+    def fire_on_add_resource(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.on_add_resouce(*args, source=self, **kwargs)
+
+
+class DefaultSharedResourcesManager(BaseSharedResourcesManager):
+    def __init__(self, resources: Dict[str, object], listeners: List[ResourcesManagerListener] = None):
+        super().__init__(listeners=listeners)
         self.resources = resources
+        self.fire_on_init()
+
+    def __setitem__(self, key: str, value: object):
+        old_value = self.resources.get(key, None)
+        self.resources[key] = value
+        self.fire_on_add_resource(key=key, value=value, old_value=old_value)
+
+    def __getitem__(self, key: str):
+        return self.resources[key]
 
     def get_resource(self, resource_id: str, resource_class: Type[E] = None):
         resource = self.resources[resource_id]
