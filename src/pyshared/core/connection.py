@@ -3,19 +3,12 @@ from typing import Dict
 from typing import Iterator
 from typing import List
 from typing import Tuple
-from typing import Type
 from typing import TypeVar
 from uuid import uuid4
 
 from rx import Observer, Observable
 
 E = TypeVar('E')
-
-
-class ResourceProvider(object, metaclass=ABCMeta):
-    @abstractmethod
-    def get_resource(self, resource_id: str, resource_class: Type[E] = None) -> E:
-        return NotImplemented
 
 
 class ResourcesManagerListener(object, metaclass=ABCMeta):
@@ -58,7 +51,7 @@ class ResourcesManagerListenerAdapter(ResourcesManagerListener):
         self.on_del_resource = on_del_resource
 
 
-class SharedResourcesManager(ResourceProvider):
+class SharedResourcesManager(object, metaclass=ABCMeta):
     @abstractmethod
     def add_listener(self, listener: ResourcesManagerListener):
         return NotImplemented
@@ -68,7 +61,19 @@ class SharedResourcesManager(ResourceProvider):
         return NotImplemented
 
     @abstractmethod
-    def get_resource(self, resource_id: str, resource_class: Type[E] = None) -> E:
+    def __getitem__(self, item):
+        return NotImplemented
+
+    @abstractmethod
+    def __setitem__(self, key, value):
+        return NotImplemented
+
+    @abstractmethod
+    def __iter__(self):
+        return NotImplemented
+
+    @abstractmethod
+    def __len__(self):
         return NotImplemented
 
 
@@ -147,11 +152,11 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
             return None
         return ResourceAdapter(self, key, resource)
 
-    def get_resource(self, resource_id: str, resource_class: Type[E] = None):
-        resource = self[resource_id]
-        if resource_class is None:
-            return resource
-        return resource_class(resource)
+    def __len__(self):
+        return len(self.resources)
+
+    def __iter__(self):
+        return (k for k in self.resources.keys())
 
 
 class Command(object, metaclass=ABCMeta):
@@ -178,6 +183,34 @@ class CallCommand(Command):
         return {resource_name: result}
 
 
+class SetCommand(Command):
+    def __init__(self, resource_name: str = None, value: object = None):
+        self.resource_name = resource_name
+        self.value = value
+
+    def exec(self, resource_manager: SharedResourcesManager):
+        resource_name = self.resource_name if self.resource_name else str(uuid4())
+        resource_manager[resource_name] = self.value
+        return {resource_name: self.value}
+
+
+class DelCommand(Command):
+    def __init__(self, resource_name: str):
+        self.resource_name = resource_name
+
+    def exec(self, resource_manager: SharedResourcesManager):
+        del resource_manager[self.resource_name]
+        return self.resource_name
+
+
+class ListCommand(Command):
+    def __init__(self, filter=None):
+        self.filter = filter
+
+    def exec(self, resource_manager: SharedResourcesManager):
+        return list(filter(self.filter, resource_manager))
+
+
 class CommandMapper(object, metaclass=ABCMeta):
     @abstractmethod
     def map(self, package) -> Command:
@@ -197,7 +230,10 @@ class DictCommandMapper(CommandMapper):
 
 
 default_command_mapper = DictCommandMapper({
-    'call': CallCommand
+    'call': CallCommand,
+    'set': SetCommand,
+    'del': DelCommand,
+    'list': ListCommand
 })
 
 
