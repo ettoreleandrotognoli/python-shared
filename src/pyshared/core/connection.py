@@ -30,6 +30,10 @@ class ResourcesManagerListener(object, metaclass=ABCMeta):
     def on_add_resource(self, *args, **kwargs):
         return NotImplemented
 
+    @abstractmethod
+    def on_call(self, *args, **kwargs):
+        return NotImplemented
+
 
 NOOP = lambda *args, **kwargs: None
 
@@ -38,11 +42,13 @@ class ResourcesManagerListenerAdapter(ResourcesManagerListener):
     on_init = NOOP
     on_finish = NOOP
     on_add_resource = NOOP
+    on_call = NOOP
 
-    def __init__(self, on_init=NOOP, on_finish=NOOP, on_add_resource=NOOP):
+    def __init__(self, on_init=NOOP, on_finish=NOOP, on_add_resource=NOOP, on_call=NOOP):
         self.on_init = on_init
         self.on_finish = on_finish
         self.on_add_resource = on_add_resource
+        self.on_call = on_call
 
 
 class SharedResourcesManager(ResourceProvider):
@@ -81,6 +87,33 @@ class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
         for listener in self.listeners:
             listener.on_add_resouce(*args, source=self, **kwargs)
 
+    def fire_on_call(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.on_call(*args, source=self, **kwargs)
+
+
+class ResourceAdapter(object):
+    def __init__(self, manager, key, resource, parent_adapter: 'ResourceAdapter' = None):
+        self._parent_adapter = parent_adapter
+        self._key = key
+        self._manager = manager
+        self._resource = resource
+
+    def __call__(self, *args, **kwargs):
+        result = self._resource(*args, **kwargs)
+        self._manager.fire_on_call(
+            resource=self._resource,
+            key=self._key,
+            result=result,
+            args=args,
+            kwargs=kwargs
+        )
+        return result
+
+    def __getattr__(self, attr_name):
+        attr_value = getattr(self._resource, attr_name)
+        return ResourceAdapter(key=self._key, parent_adapter=self, manager=self._manager, resource=attr_value)
+
 
 class DefaultSharedResourcesManager(BaseSharedResourcesManager):
     def __init__(self, resources: Dict[str, object], listeners: List[ResourcesManagerListener] = None):
@@ -94,10 +127,13 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
         self.fire_on_add_resource(key=key, value=value, old_value=old_value)
 
     def __getitem__(self, key: str):
-        return self.resources[key]
+        resource = self.resources.get(key, None)
+        if resource is None:
+            return None
+        return ResourceAdapter(self, key, resource)
 
     def get_resource(self, resource_id: str, resource_class: Type[E] = None):
-        resource = self.resources[resource_id]
+        resource = self[resource_id]
         if resource_class is None:
             return resource
         return resource_class(resource)
