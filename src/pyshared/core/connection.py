@@ -5,6 +5,7 @@ from typing import List
 from typing import Tuple
 from typing import Type
 from typing import TypeVar
+from uuid import uuid4
 
 from rx import Observer, Observable
 
@@ -91,7 +92,7 @@ class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
 
     def fire_on_set_resource(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_add_resouce(*args, source=self, **kwargs)
+            listener.on_set_resource(*args, source=self, **kwargs)
 
     def fire_on_del_resource(self, *args, **kwargs):
         for listener in self.listeners:
@@ -160,15 +161,21 @@ class Command(object, metaclass=ABCMeta):
 
 
 class CallCommand(Command):
-    def __init__(self, resource_name: str, method: str, args: Iterator = [], kwargs: Dict = {}):
+    def __init__(self, resource_name: str, method: str, result=False, args: Iterator = [], kwargs: Dict = {}):
         self.resource_name = resource_name
         self.method = method
         self.args = args
         self.kwargs = kwargs
+        self.result = result
 
     def exec(self, resource_manager: SharedResourcesManager):
-        resource = resource_manager.get_resource(self.resource_name)
-        return getattr(resource, self.method)(*self.args, **self.kwargs)
+        resource = resource_manager[self.resource_name]
+        result = getattr(resource, self.method)(*self.args, **self.kwargs)
+        if not self.result:
+            return result
+        resource_name = self.result if self.result is not True else str(uuid4())
+        resource_manager[resource_name] = result
+        return {resource_name: result}
 
 
 class CommandMapper(object, metaclass=ABCMeta):
