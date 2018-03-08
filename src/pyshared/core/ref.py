@@ -1,40 +1,12 @@
-from abc import ABCMeta, abstractmethod
 from typing import Dict
 from typing import Iterator
 from typing import List
 from typing import TypeVar
 from uuid import uuid4
 
-from rx import Observable
+from pyshared.core.api import *
 
 E = TypeVar('E')
-
-
-class ResourcesManagerListener(object, metaclass=ABCMeta):
-    @abstractmethod
-    def on_init(self, *args, **kwargs):
-        return NotImplemented
-
-    @abstractmethod
-    def on_finish(self, *args, **kwargs):
-        return NotImplemented
-
-    @abstractmethod
-    def on_set_resource(self, *args, **kwargs):
-        return NotImplemented
-
-    @abstractmethod
-    def on_del_resource(self, *args, **kwargs):
-        return NotImplemented
-
-    @abstractmethod
-    def on_call_resource(self, *args, **kwargs):
-        return NotImplemented
-
-    @abstractmethod
-    def on_error(self, ex: Exception):
-        pass
-
 
 NOOP = lambda *args, **kwargs: None
 
@@ -59,32 +31,6 @@ class ResourcesManagerListenerAdapter(ResourcesManagerListener):
         self.on_call_resource = on_call_resource
         self.on_del_resource = on_del_resource
         self.on_error = on_error
-
-
-class SharedResourcesManager(object, metaclass=ABCMeta):
-    @abstractmethod
-    def add_listener(self, listener: ResourcesManagerListener):
-        return NotImplemented
-
-    @abstractmethod
-    def remove_listener(self, listener: ResourcesManagerListener):
-        return NotImplemented
-
-    @abstractmethod
-    def __getitem__(self, item):
-        return NotImplemented
-
-    @abstractmethod
-    def __setitem__(self, key, value):
-        return NotImplemented
-
-    @abstractmethod
-    def __iter__(self):
-        return NotImplemented
-
-    @abstractmethod
-    def __len__(self):
-        return NotImplemented
 
 
 class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
@@ -184,12 +130,6 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
         return (k for k in self.resources.keys())
 
 
-class Command(object, metaclass=ABCMeta):
-    @abstractmethod
-    def exec(self, resource_manager: SharedResourcesManager):
-        return NotImplemented
-
-
 class CallCommand(Command):
     def __init__(self, resource_name: str, method: str, result=False, args: Iterator = [], kwargs: Dict = {}):
         self.resource_name = resource_name
@@ -236,12 +176,6 @@ class ListCommand(Command):
         return list(filter(self.filter, resource_manager))
 
 
-class CommandMapper(object, metaclass=ABCMeta):
-    @abstractmethod
-    def map(self, package) -> Command:
-        return NotImplemented
-
-
 class DictCommandMapper(CommandMapper):
     def __init__(self, commands_factory_map: Dict[str, callable]):
         self.commands_factory_map = commands_factory_map
@@ -260,12 +194,3 @@ default_command_mapper = DictCommandMapper({
     'del': DelCommand,
     'list': ListCommand
 })
-
-
-class ReactiveSharedResourcesServer(object):
-    def __init__(self, shared_manager: SharedResourcesManager):
-        self.shared_manager = shared_manager
-
-    def __call__(self, command: Command) -> Observable:
-        result = command.exec(self.shared_manager)
-        return Observable.just(result)

@@ -1,13 +1,13 @@
 import json
 import unittest
 
-from pyshared.core.connection import CallCommand
-from pyshared.core.connection import DefaultSharedResourcesManager
-from pyshared.core.connection import DelCommand
-from pyshared.core.connection import ListCommand
-from pyshared.core.connection import ReactiveSharedResourcesServer
-from pyshared.core.connection import SetCommand
-from pyshared.core.connection import default_command_mapper
+from pyshared.core.ref import CallCommand
+from pyshared.core.ref import DefaultSharedResourcesManager
+from pyshared.core.ref import DelCommand
+from pyshared.core.ref import ListCommand
+from pyshared.core.ref import SetCommand
+from pyshared.core.ref import default_command_mapper
+from pyshared.core.rx import ReactiveSharedResourcesServer
 from rx import Observable
 
 

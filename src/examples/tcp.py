@@ -2,12 +2,12 @@ import json
 import multiprocessing
 import time
 
-from pyshared.core.connection import DefaultSharedResourcesManager
-from pyshared.core.connection import ReactiveSharedResourcesServer
-from pyshared.core.connection import ResourcesManagerListenerAdapter
-from pyshared.core.connection import default_command_mapper
-from pyshared.core.tcp import TCPServer
-from pyshared.core.tcp import TCPServerConnection
+from pyshared.core.ref import DefaultSharedResourcesManager
+from pyshared.core.ref import ResourcesManagerListenerAdapter
+from pyshared.core.ref import default_command_mapper
+from pyshared.core.rx import ReactiveSharedResourcesServer
+from pyshared.core.rx import TCPServer
+from pyshared.core.rx import TCPServerConnection
 from pyshared.core.utils import map_debug, fdebug
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler

@@ -1,7 +1,18 @@
 import socket
 
+from pyshared.core.api import *
 from pyshared.core.utils import mdebug
+from rx import Observable
 from rx import Observer
+
+
+class ReactiveSharedResourcesServer(object):
+    def __init__(self, shared_manager: SharedResourcesManager):
+        self.shared_manager = shared_manager
+
+    def __call__(self, command: Command) -> Observable:
+        result = command.exec(self.shared_manager)
+        return Observable.just(result)
 
 
 class TCPServerConnection(Observer):

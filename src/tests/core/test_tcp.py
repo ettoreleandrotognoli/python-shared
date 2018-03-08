@@ -3,9 +3,9 @@ import multiprocessing
 import time
 import unittest
 
-from pyshared.core.tcp import TCPClient
-from pyshared.core.tcp import TCPServer
-from pyshared.core.tcp import TCPServerConnection
+from pyshared.core.rx import TCPClient
+from pyshared.core.rx import TCPServer
+from pyshared.core.rx import TCPServerConnection
 from pyshared.core.utils import fdebug
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
