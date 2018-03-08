@@ -19,8 +19,7 @@ class TCPServerConnection(Observer):
         while self.running:
             data = self.socket.recv(self.server.buffer_size)
             if not data:
-                self.close()
-                self.running = False
+                return
             yield data
 
     @mdebug
