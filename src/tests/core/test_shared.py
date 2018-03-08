@@ -3,10 +3,12 @@ import unittest
 
 from pyshared.core.connection import CallCommand
 from pyshared.core.connection import DefaultSharedResourcesManager
+from pyshared.core.connection import DelCommand
+from pyshared.core.connection import ListCommand
 from pyshared.core.connection import ReactiveSharedResourcesServer
+from pyshared.core.connection import SetCommand
 from pyshared.core.connection import default_command_mapper
 from rx import Observable
-from rx.subjects import Subject
 
 
 class DefaultTest(unittest.TestCase):
@@ -40,9 +42,30 @@ class ReactiveTest(unittest.TestCase):
             method='__sub__',
             args=[5]
         )
-        subject = Subject()
-        subject.subscribe(on_next=lambda e: self.assertEqual(5, e))
-        self.reactive_server(call_command).subscribe(subject)
+        result = []
+        self.reactive_server(call_command).subscribe(result.append)
+        self.assertEqual(result, [5])
+
+    def test_list(self):
+        list_command = ListCommand()
+        result = []
+        self.reactive_server(list_command).subscribe(result.append)
+        self.assertEqual(result, [['number']])
+
+    def test_set(self):
+        set_command = SetCommand(
+            resource_name='a',
+            value=10
+        )
+        result = []
+        self.reactive_server(set_command).subscribe(result.append)
+        self.assertEqual(result, [{'a': 10}])
+
+    def test_del(self):
+        del_command = DelCommand(resource_name='number')
+        result = []
+        self.reactive_server(del_command).subscribe(result.append)
+        self.assertEqual(result, ['number'])
 
     def test_mapper(self):
         result = []
