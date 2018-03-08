@@ -2,11 +2,10 @@ from abc import ABCMeta, abstractmethod
 from typing import Dict
 from typing import Iterator
 from typing import List
-from typing import Tuple
 from typing import TypeVar
 from uuid import uuid4
 
-from rx import Observer, Observable
+from rx import Observable
 
 E = TypeVar('E')
 
@@ -25,8 +24,16 @@ class ResourcesManagerListener(object, metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
+    def on_del_resource(self, *args, **kwargs):
+        return NotImplemented
+
+    @abstractmethod
     def on_call_resource(self, *args, **kwargs):
         return NotImplemented
+
+    @abstractmethod
+    def on_error(self, ex: Exception):
+        pass
 
 
 NOOP = lambda *args, **kwargs: None
@@ -38,17 +45,20 @@ class ResourcesManagerListenerAdapter(ResourcesManagerListener):
     on_set_resource = NOOP
     on_call_resource = NOOP
     on_del_resource = NOOP
+    on_error = NOOP
 
     def __init__(self, on_init=NOOP,
                  on_finish=NOOP,
                  on_set_resource=NOOP,
                  on_call_resource=NOOP,
-                 on_del_resource=NOOP):
+                 on_del_resource=NOOP,
+                 on_error=NOOP):
         self.on_init = on_init
         self.on_finish = on_finish
         self.on_set_resource = on_set_resource
         self.on_call_resource = on_call_resource
         self.on_del_resource = on_del_resource
+        self.on_error = on_error
 
 
 class SharedResourcesManager(object, metaclass=ABCMeta):
@@ -78,7 +88,7 @@ class SharedResourcesManager(object, metaclass=ABCMeta):
 
 
 class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
-    def __init__(self, listeners=None):
+    def __init__(self, listeners: List[ResourcesManagerListener] = None):
         self.listeners = listeners or []
 
     def add_listener(self, listener: ResourcesManagerListener):
@@ -89,23 +99,38 @@ class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
 
     def fire_on_init(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_init(*args, source=self, **kwargs)
+            try:
+                listener.on_init(*args, source=self, **kwargs)
+            except Exception as ex:
+                listener.on_error(ex)
 
     def fire_on_finish(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_finish(*args, source=self, **kwargs)
+            try:
+                listener.on_finish(*args, source=self, **kwargs)
+            except Exception as ex:
+                listener.on_error(ex)
 
     def fire_on_set_resource(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_set_resource(*args, source=self, **kwargs)
+            try:
+                listener.on_set_resource(*args, source=self, **kwargs)
+            except Exception as ex:
+                listener.on_error(ex)
 
     def fire_on_del_resource(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_del_resource(*args, source=self, **kwargs)
+            try:
+                listener.on_del_resource(*args, source=self, **kwargs)
+            except Exception as ex:
+                listener.on_error(ex)
 
     def fire_on_call_resource(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_call_resource(*args, source=self, **kwargs)
+            try:
+                listener.on_call_resource(*args, source=self, **kwargs)
+            except Exception as ex:
+                listener.on_error(ex)
 
 
 class ResourceAdapter(object):
@@ -244,8 +269,3 @@ class ReactiveSharedResourcesServer(object):
     def __call__(self, command: Command) -> Observable:
         result = command.exec(self.shared_manager)
         return Observable.just(result)
-
-    def on_next(self, value: Tuple[Command, Observer]):
-        command, response = value
-        result = command.exec(self.shared_manager)
-        response.on_next(result)

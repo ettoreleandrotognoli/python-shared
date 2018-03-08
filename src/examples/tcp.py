@@ -31,7 +31,8 @@ def main():
         on_finish=debug('finish'),
         on_call_resource=debug('call'),
         on_del_resource=debug('del'),
-        on_set_resource=debug('set')
+        on_set_resource=debug('set'),
+        on_error=debug('error')
     )
     manager = DefaultSharedResourcesManager({
         'number': 10,

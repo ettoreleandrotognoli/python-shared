@@ -42,7 +42,7 @@ class ReactiveTest(unittest.TestCase):
         )
         subject = Subject()
         subject.subscribe(on_next=lambda e: self.assertEqual(5, e))
-        self.reactive_server.on_next((call_command, subject))
+        self.reactive_server(call_command).subscribe(subject)
 
     def test_mapper(self):
         result = []
