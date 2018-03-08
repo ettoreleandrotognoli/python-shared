@@ -1,12 +1,9 @@
 from typing import Dict
 from typing import Iterator
 from typing import List
-from typing import TypeVar
 from uuid import uuid4
 
 from pyshared.core.api import *
-
-E = TypeVar('E')
 
 NOOP = lambda *args, **kwargs: None
 
