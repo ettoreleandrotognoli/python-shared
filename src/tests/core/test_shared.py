@@ -46,6 +46,28 @@ class ReactiveTest(unittest.TestCase):
         self.reactive_server(call_command).subscribe(result.append)
         self.assertEqual(result, [5])
 
+    def test_call_with_result(self):
+        call_command = CallCommand(
+            resource_name='number',
+            method='__add__',
+            args=[5],
+            result='result'
+        )
+        result = []
+        self.reactive_server(call_command).subscribe(result.append)
+        self.assertEqual(result, [{'result': 15}])
+
+    def test_call_any_result(self):
+        call_command = CallCommand(
+            resource_name='number',
+            method='__add__',
+            args=[5],
+            result=True
+        )
+        result = []
+        self.reactive_server(call_command).subscribe(result.append)
+        self.assertEqual(15, list(result[0].values())[0])
+
     def test_list(self):
         list_command = ListCommand()
         result = []
