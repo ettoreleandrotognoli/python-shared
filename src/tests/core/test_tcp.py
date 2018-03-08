@@ -1,4 +1,3 @@
-import json
 import multiprocessing
 import time
 import unittest
@@ -7,59 +6,49 @@ from pyshared.core.rx import TCPClient
 from pyshared.core.rx import TCPServer
 from pyshared.core.rx import TCPServerConnection
 from pyshared.core.utils import fdebug
+from pyshared.core.utils import map_debug
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
+from rx.testing import marbles
 
-port = 8001
+m = marbles
 optimal_thread_count = multiprocessing.cpu_count() + 1
 pool_scheduler = ThreadPoolScheduler(optimal_thread_count)
-
-
-@fdebug
-def print_and_return(v):
-    print('server receive', v)
-    return eval(v)
 
 
 class TCPTest(unittest.TestCase):
     received_package = None
 
     def test_send_receive(self):
+        total_clients = 1
         test_case = self
         test_package = dict(a=1, b=2)
 
         @fdebug
         def process(con: TCPServerConnection):
             print('new connection accepted')
-            Observable.create(con) \
-                .observe_on(pool_scheduler) \
+            con.as_observable(pool_scheduler) \
                 .map(lambda e: e.decode('utf-8')) \
-                .map(json.loads) \
-                .map(print_and_return) \
-                .map(json.dumps) \
+                .map(map_debug) \
                 .map(lambda e: e.encode('utf-8')) \
-                .subscribe_on(pool_scheduler) \
                 .subscribe(con)
 
         server = TCPServer()
-        Observable.create(server.connect('0.0.0.0', port, backlog=10)) \
-            .observe_on(pool_scheduler) \
-            .subscribe_on(pool_scheduler) \
-            .subscribe(process)
+        server.connect('0.0.0.0', 0, backlog=10)
+        port = server.port
+        server.as_observable(pool_scheduler) \
+            .subscribe(on_next=process, on_error=print)
 
-        for i in range(2):
+        for i in range(total_clients):
             client = TCPClient()
-            Observable.create(client.connect('127.0.0.1', port)) \
-                .observe_on(pool_scheduler) \
+            client_id = i
+            client.connect('127.0.0.1', port) \
+                .as_observable(pool_scheduler) \
                 .map(lambda e: e.decode('utf-8')) \
-                .map(json.loads) \
-                .subscribe_on(pool_scheduler) \
-                .subscribe(on_next=lambda e: print('client-%d receive -> ' % i, e))
+                .subscribe(on_next=lambda e: print('client-%d receive -> ' % i, e), on_error=print)
             time.sleep(0.5)
-            Observable.from_(['time.sleep(0.2) or True', 'time.sleep(0.2) or \'fuu\''] * 3) \
-                .zip(Observable.interval(1000), lambda a, b: a) \
-                .map(fdebug(lambda e: print('client-%d sending ->' % i, e) or e)) \
-                .map(json.dumps) \
+            Observable.from_marbles('a-------------b--------------c-------------|') \
+                .map(fdebug(lambda e: print('client-%d sending ->' % client_id, e) or e)) \
                 .map(lambda e: e.encode('utf-8')) \
                 .subscribe(client)
         time.sleep(10)
