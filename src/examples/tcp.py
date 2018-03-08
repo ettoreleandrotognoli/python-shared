@@ -13,7 +13,6 @@ from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
 
 address = '0.0.0.0'
-port = 8001
 optimal_thread_count = multiprocessing.cpu_count() + 1
 pool_scheduler = ThreadPoolScheduler(optimal_thread_count)
 
@@ -55,7 +54,9 @@ def main():
             .subscribe(client)
 
     server = TCPServer()
-    Observable.from_(server.connect_as_iterable(address, port), pool_scheduler) \
+    server.connect(address, 0)
+    print("running at %s:%d" % (address, server.port))
+    server.as_observable(pool_scheduler) \
         .subscribe(process_client)
 
 

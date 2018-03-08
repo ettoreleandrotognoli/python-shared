@@ -21,24 +21,17 @@ class TCPServerConnection(Observer):
         self.server = server
         self.socket = sock
 
-    @mdebug
-    def __call__(self, observer):
-        self.loop(observer)
+    def as_observable(self, scheduler=None):
+        Observable.from_(self.as_iterable(), scheduler=scheduler)
 
     def as_iterable(self):
         self.running = True
         while self.running:
             data = self.socket.recv(self.server.buffer_size)
             if not data:
+                self.running = False
                 return
             yield data
-
-    @mdebug
-    def loop(self, observer: Observer):
-        self.running = True
-        while self.running:
-            self.run(observer)
-        observer.on_completed()
 
     @mdebug
     def run(self, observer: Observer):
@@ -46,11 +39,6 @@ class TCPServerConnection(Observer):
         if not data:
             return self.close()
         observer.on_next(data)
-
-    @mdebug
-    def stop(self):
-        self.running = False
-        self.socket.close()
 
     @mdebug
     def on_next(self, value):
@@ -62,6 +50,7 @@ class TCPServerConnection(Observer):
 
     @mdebug
     def on_completed(self):
+        self.running = False
         self.stop()
 
 
@@ -70,16 +59,24 @@ class TCPServer(object):
         self.running = False
         self.thread = None
         self.buffer_size = buffer_size
+        self.port = None
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def connect(self, ip: str, port: int, backlog: int = 1):
         self.socket.bind((ip, port))
+        self.port = self.socket.getsockname()[1]
         self.socket.listen(backlog)
-        return self.loop
+        return self
+
+    def as_observable(self, scheduler=None) -> Observable:
+        return Observable.from_(self.as_iterable(), scheduler=scheduler)
+
+    def connect_as_observable(self, ip: str, port: int, backlog: int = 1, scheduler=None):
+        self.connect(ip, port, backlog)
+        return self.as_observable(scheduler)
 
     def connect_as_iterable(self, ip: str, port: int, backlog: int = 1):
-        self.socket.bind((ip, port))
-        self.socket.listen(backlog)
+        self.connect(ip, port, backlog)
         return self.as_iterable()
 
     def as_iterable(self):
@@ -90,23 +87,8 @@ class TCPServer(object):
                 yield TCPServerConnection(self, conn)
             except Exception as ex:
                 raise ex
+        self.socket.close()
 
-    @mdebug
-    def loop(self, observer: Observer):
-        self.running = True
-        while self.running:
-            self.run(observer)
-        observer.on_completed()
-
-    @mdebug
-    def run(self, observer: Observer):
-        try:
-            conn, addr = self.socket.accept()
-            observer.on_next(conn)
-        except Exception as ex:
-            observer.on_error(ex)
-
-    @mdebug
     def stop(self):
         self.running = False
         self.socket.close()
@@ -120,23 +102,20 @@ class TCPClient(Observer):
 
     def connect(self, ip: str, port: int):
         self.socket.connect((ip, port))
-        return self.loop
+        return self
 
-    @mdebug
-    def loop(self, observer: Observer):
+    def as_observable(self, scheduler=None):
+        return Observable.from_(self.as_iterable(), scheduler=scheduler)
+
+    def as_iterable(self):
         self.running = True
         while self.running:
-            self.run(observer)
-        observer.on_completed()
+            data = self.socket.recv(self.buffer_size)
+            if not data:
+                self.close()
+                return
+            yield data
 
-    @mdebug
-    def run(self, observer: Observer):
-        data = self.socket.recv(self.buffer_size)
-        if not data:
-            return self.close()
-        observer.on_next(data)
-
-    @mdebug
     def close(self):
         self.running = False
         self.socket.close()
