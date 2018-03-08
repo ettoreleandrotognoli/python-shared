@@ -27,11 +27,11 @@ class ResourcesManagerListener(object, metaclass=ABCMeta):
         return NotImplemented
 
     @abstractmethod
-    def on_add_resource(self, *args, **kwargs):
+    def on_set_resource(self, *args, **kwargs):
         return NotImplemented
 
     @abstractmethod
-    def on_call(self, *args, **kwargs):
+    def on_call_resource(self, *args, **kwargs):
         return NotImplemented
 
 
@@ -41,14 +41,20 @@ NOOP = lambda *args, **kwargs: None
 class ResourcesManagerListenerAdapter(ResourcesManagerListener):
     on_init = NOOP
     on_finish = NOOP
-    on_add_resource = NOOP
-    on_call = NOOP
+    on_set_resource = NOOP
+    on_call_resource = NOOP
+    on_del_resource = NOOP
 
-    def __init__(self, on_init=NOOP, on_finish=NOOP, on_add_resource=NOOP, on_call=NOOP):
+    def __init__(self, on_init=NOOP,
+                 on_finish=NOOP,
+                 on_set_resource=NOOP,
+                 on_call_resource=NOOP,
+                 on_del_resource=NOOP):
         self.on_init = on_init
         self.on_finish = on_finish
-        self.on_add_resource = on_add_resource
-        self.on_call = on_call
+        self.on_set_resource = on_set_resource
+        self.on_call_resource = on_call_resource
+        self.on_del_resource = on_del_resource
 
 
 class SharedResourcesManager(ResourceProvider):
@@ -83,13 +89,17 @@ class BaseSharedResourcesManager(SharedResourcesManager, metaclass=ABCMeta):
         for listener in self.listeners:
             listener.on_finish(*args, source=self, **kwargs)
 
-    def fire_on_add_resource(self, *args, **kwargs):
+    def fire_on_set_resource(self, *args, **kwargs):
         for listener in self.listeners:
             listener.on_add_resouce(*args, source=self, **kwargs)
 
-    def fire_on_call(self, *args, **kwargs):
+    def fire_on_del_resource(self, *args, **kwargs):
         for listener in self.listeners:
-            listener.on_call(*args, source=self, **kwargs)
+            listener.on_del_resource(*args, source=self, **kwargs)
+
+    def fire_on_call_resource(self, *args, **kwargs):
+        for listener in self.listeners:
+            listener.on_call_resource(*args, source=self, **kwargs)
 
 
 class ResourceAdapter(object):
@@ -101,7 +111,7 @@ class ResourceAdapter(object):
 
     def __call__(self, *args, **kwargs):
         result = self._resource(*args, **kwargs)
-        self._manager.fire_on_call(
+        self._manager.fire_on_call_resource(
             resource=self._resource,
             key=self._key,
             result=result,
@@ -119,12 +129,15 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
     def __init__(self, resources: Dict[str, object], listeners: List[ResourcesManagerListener] = None):
         super().__init__(listeners=listeners)
         self.resources = resources
-        self.fire_on_init()
+        self.fire_on_init(resources=self.resources)
 
     def __setitem__(self, key: str, value: object):
         old_value = self.resources.get(key, None)
         self.resources[key] = value
-        self.fire_on_add_resource(key=key, value=value, old_value=old_value)
+        self.fire_on_set_resource(key=key, value=value, old_value=old_value)
+
+    def __delitem__(self, key):
+        del self.resources[key]
 
     def __getitem__(self, key: str):
         resource = self.resources.get(key, None)
