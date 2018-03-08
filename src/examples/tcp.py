@@ -4,6 +4,7 @@ import time
 
 from pyshared.core.connection import DefaultSharedResourcesManager
 from pyshared.core.connection import ReactiveSharedResourcesServer
+from pyshared.core.connection import ResourcesManagerListenerAdapter
 from pyshared.core.connection import default_command_mapper
 from pyshared.core.tcp import TCPServer
 from pyshared.core.tcp import TCPServerConnection
@@ -17,10 +18,25 @@ optimal_thread_count = multiprocessing.cpu_count() + 1
 pool_scheduler = ThreadPoolScheduler(optimal_thread_count)
 
 
+def debug(name):
+    def wrapper(*args, **kwargs):
+        print(name, args, kwargs)
+
+    return wrapper
+
+
 def main():
-    pyshared = ReactiveSharedResourcesServer(DefaultSharedResourcesManager({
-        'number': 10
-    }))
+    listener = ResourcesManagerListenerAdapter(
+        on_init=debug('init'),
+        on_finish=debug('finish'),
+        on_call_resource=debug('call'),
+        on_del_resource=debug('del'),
+        on_set_resource=debug('set')
+    )
+    manager = DefaultSharedResourcesManager({
+        'number': 10,
+    }, listeners=[listener])
+    pyshared = ReactiveSharedResourcesServer(manager)
 
     @fdebug
     def process_client(client: TCPServerConnection):
