@@ -138,6 +138,7 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
 
     def __delitem__(self, key):
         del self.resources[key]
+        self.fire_on_del_resource(key=key)
 
     def __getitem__(self, key: str):
         resource = self.resources.get(key, None)
