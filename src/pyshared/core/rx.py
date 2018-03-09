@@ -22,7 +22,7 @@ class TCPServerConnection(Observer):
         self.socket = sock
 
     def as_observable(self, scheduler=None):
-        Observable.from_(self.as_iterable(), scheduler=scheduler)
+        return Observable.from_(self.as_iterable(), scheduler=scheduler)
 
     def as_iterable(self):
         self.running = True

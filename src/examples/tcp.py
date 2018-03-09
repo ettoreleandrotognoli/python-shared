@@ -40,7 +40,7 @@ def main():
 
     @fdebug
     def process_client(client: TCPServerConnection):
-        Observable.from_(client.as_iterable(), pool_scheduler) \
+        client.as_observable(pool_scheduler) \
             .map(map_debug) \
             .map(lambda e: e.decode('utf-8')) \
             .map(json.loads) \
