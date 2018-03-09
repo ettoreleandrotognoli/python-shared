@@ -3,8 +3,15 @@ __version__ = (0, 0, 0)
 
 import os
 
-from pip.req import parse_requirements
 from setuptools import setup, find_packages
+
+
+def parse_requirements(filename):
+    with open(filename) as f:
+        lines = f.readlines()
+        striped_lines = filter(None, map(str.strip, lines))
+        true_requirements = filter(lambda s: not s.startswith('#'), striped_lines)
+        return list(true_requirements)
 
 
 def read(file_name):
@@ -24,7 +31,8 @@ setup(
     license='BSD',
     author=u'Éttore Leandro Tognoli',
     author_email='ettore.leandro.tognoli@gmail.com',
-    packages=find_packages(exclude=['src/tests', 'src/examples']),
+    packages=find_packages(where='./src', exclude=['tests', 'examples']),
+    package_dir={'': 'src'},
     include_package_data=True,
     keywords=[],
     classifiers=[
