@@ -92,8 +92,8 @@ class ReactiveTest(unittest.TestCase):
     def test_mapper(self):
         result = []
         Observable.from_([
-            {'cmd': 'call', 'data': {'resource_name': 'number', 'method': '__sub__', 'args': [1]}},
-            {'cmd': 'call', 'data': {'resource_name': 'number', 'method': '__add__', 'args': [5]}},
+            {'cmd': 'call', 'resource_name': 'number', 'method': '__sub__', 'args': [1]},
+            {'cmd': 'call', 'resource_name': 'number', 'method': '__add__', 'args': [5]},
         ]).map(default_command_mapper) \
             .flat_map(self.reactive_server) \
             .subscribe(result.append)
@@ -102,8 +102,8 @@ class ReactiveTest(unittest.TestCase):
     def test_json_mapper(self):
         result = []
         Observable.from_([
-            '{"cmd": "call", "data": {"resource_name": "number", "method": "__sub__", "args": [1]}}',
-            '{"cmd": "call", "data": {"resource_name": "number", "method": "__add__", "args": [5]}}',
+            '{"cmd": "call", "resource_name": "number", "method": "__sub__", "args": [1]}',
+            '{"cmd": "call", "resource_name": "number", "method": "__add__", "args": [5]}',
         ]).map(json.loads) \
             .map(default_command_mapper) \
             .flat_map(self.reactive_server) \

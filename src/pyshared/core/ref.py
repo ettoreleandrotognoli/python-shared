@@ -145,6 +145,14 @@ class CallCommand(Command):
         return {resource_name: result}
 
 
+class UnknownCommand(Command):
+    def __init__(self):
+        pass
+
+    def exec(self, resource_manager: SharedResourcesManager):
+        return {'error': 'command  not found'}
+
+
 class SetCommand(Command):
     def __init__(self, resource_name: str = None, value: object = None):
         self.resource_name = resource_name
@@ -174,12 +182,14 @@ class ListCommand(Command):
 
 
 class DictCommandMapper(CommandMapper):
+    UNKNOWN_COMMAND = UnknownCommand
+
     def __init__(self, commands_factory_map: Dict[str, callable]):
         self.commands_factory_map = commands_factory_map
 
     def map(self, package: Dict) -> Command:
-        command_name = package['cmd']
-        return self.commands_factory_map[command_name](**package.get('data', {}))
+        command_name = package.pop('cmd', None)
+        return self.commands_factory_map.get(command_name, self.UNKNOWN_COMMAND)(**package)
 
     def __call__(self, package: Dict) -> Command:
         return self.map(package)
