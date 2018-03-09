@@ -17,6 +17,17 @@ optimal_thread_count = multiprocessing.cpu_count() + 1
 pool_scheduler = ThreadPoolScheduler(optimal_thread_count)
 
 
+def safe(func, handler=lambda e: None):
+    def wrapper(*args, **kwargs):
+        try:
+            return Observable.just(func(*args, **kwargs))
+        except Exception as ex:
+            handler(ex)
+            return Observable.empty()
+
+    return wrapper
+
+
 def debug(name):
     def wrapper(*args, **kwargs):
         print(name, args, kwargs)
@@ -42,8 +53,8 @@ def main():
     def process_client(client: TCPServerConnection):
         client.as_observable(pool_scheduler) \
             .map(map_debug) \
-            .map(lambda e: e.decode('utf-8')) \
-            .map(json.loads) \
+            .flat_map(safe(lambda e: e.decode('utf-8'), print)) \
+            .flat_map(safe(json.loads, print)) \
             .map(default_command_mapper) \
             .map(map_debug) \
             .flat_map(pyshared) \
