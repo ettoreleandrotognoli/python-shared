@@ -29,16 +29,13 @@ class TCPServerConnection(Observer):
         while self.running:
             data = self.socket.recv(self.server.buffer_size)
             if not data:
-                self.running = False
+                self.stop()
                 return
             yield data
 
-    @mdebug
-    def run(self, observer: Observer):
-        data = self.socket.recv(self.server.buffer_size)
-        if not data:
-            return self.close()
-        observer.on_next(data)
+    def stop(self):
+        self.running = False
+        self.socket.close()
 
     @mdebug
     def on_next(self, value):
@@ -50,7 +47,6 @@ class TCPServerConnection(Observer):
 
     @mdebug
     def on_completed(self):
-        self.running = False
         self.stop()
 
 
@@ -86,8 +82,8 @@ class TCPServer(object):
                 conn, addr = self.socket.accept()
                 yield TCPServerConnection(self, conn)
             except Exception as ex:
+                self.stop()
                 raise ex
-        self.socket.close()
 
     def stop(self):
         self.running = False
@@ -112,11 +108,11 @@ class TCPClient(Observer):
         while self.running:
             data = self.socket.recv(self.buffer_size)
             if not data:
-                self.close()
+                self.stop()
                 return
             yield data
 
-    def close(self):
+    def stop(self):
         self.running = False
         self.socket.close()
 
@@ -126,7 +122,7 @@ class TCPClient(Observer):
 
     @mdebug
     def on_completed(self):
-        self.close()
+        self.stop()
 
     @mdebug
     def on_error(self, error):
