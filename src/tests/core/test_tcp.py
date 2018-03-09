@@ -55,12 +55,12 @@ class TCPTest(unittest.TestCase):
             .map(lambda e: e.decode('utf-8')) \
             .subscribe(result.append)
 
-        send_data = Observable.from_marbles('--a-------------b--------------c-------------|') \
+        send_data = Observable.from_marbles('-a-b-c-|') \
             .map(lambda e: e.encode('utf-8')) \
             .subscribe
         Observable.from_(clients).subscribe(send_data)
 
-        time.sleep(5)
+        time.sleep(1)
         server.stop()
         self.assertEqual(['a', 'a', 'b', 'b', 'c', 'c'], result)
         del Schedulers.computation

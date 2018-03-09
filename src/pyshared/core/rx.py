@@ -1,4 +1,5 @@
 import socket
+from typing import Iterable
 
 from pyshared.core.api import *
 from pyshared.core.utils import mdebug
@@ -21,10 +22,10 @@ class TCPServerConnection(Observer):
         self.server = server
         self.socket = sock
 
-    def as_observable(self, scheduler=None):
+    def as_observable(self, scheduler=None) -> Observable:
         return Observable.from_(self.as_iterable(), scheduler=scheduler)
 
-    def as_iterable(self):
+    def as_iterable(self) -> Iterable:
         self.running = True
         while self.running:
             data = self.socket.recv(self.server.buffer_size)
@@ -58,7 +59,7 @@ class TCPServer(object):
         self.port = None
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def connect(self, ip: str, port: int, backlog: int = 1):
+    def connect(self, ip: str, port: int, backlog: int = 1) -> 'TCPServer':
         self.socket.bind((ip, port))
         self.port = self.socket.getsockname()[1]
         self.socket.listen(backlog)
@@ -67,15 +68,15 @@ class TCPServer(object):
     def as_observable(self, scheduler=None) -> Observable:
         return Observable.from_(self.as_iterable(), scheduler=scheduler)
 
-    def connect_as_observable(self, ip: str, port: int, backlog: int = 1, scheduler=None):
+    def connect_as_observable(self, ip: str, port: int, backlog: int = 1, scheduler=None) -> Observable:
         self.connect(ip, port, backlog)
         return self.as_observable(scheduler)
 
-    def connect_as_iterable(self, ip: str, port: int, backlog: int = 1):
+    def connect_as_iterable(self, ip: str, port: int, backlog: int = 1) -> Iterable:
         self.connect(ip, port, backlog)
         return self.as_iterable()
 
-    def as_iterable(self):
+    def as_iterable(self) -> Iterable:
         self.running = True
         while self.running:
             try:
@@ -96,14 +97,14 @@ class TCPClient(Observer):
         self.buffer_size = buffer_size
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def connect(self, ip: str, port: int):
+    def connect(self, ip: str, port: int) -> 'TCPClient':
         self.socket.connect((ip, port))
         return self
 
-    def as_observable(self, scheduler=None):
+    def as_observable(self, scheduler=None) -> Observable:
         return Observable.from_(self.as_iterable(), scheduler=scheduler)
 
-    def as_iterable(self):
+    def as_iterable(self) -> Iterable:
         self.running = True
         while self.running:
             data = self.socket.recv(self.buffer_size)
