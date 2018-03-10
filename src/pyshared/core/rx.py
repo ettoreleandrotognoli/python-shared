@@ -11,9 +11,15 @@ class ReactiveSharedResourcesServer(object):
     def __init__(self, shared_manager: SharedResourcesManager):
         self.shared_manager = shared_manager
 
-    def __call__(self, command: Command) -> Observable:
-        result = command.exec(self.shared_manager)
-        return Observable.just(result)
+    def __call__(self, command: Command, handler=lambda x: None) -> Observable:
+        try:
+            result = command.exec(self.shared_manager)
+            if isinstance(result, Observable):
+                return result
+            return Observable.just(result)
+        except Exception as ex:
+            handler(ex)
+            return Observable.empty()
 
 
 class TCPServerConnection(Observer):

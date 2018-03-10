@@ -146,11 +146,19 @@ class CallCommand(Command):
 
 
 class UnknownCommand(Command):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         pass
 
     def exec(self, resource_manager: SharedResourcesManager):
         return {'error': 'command  not found'}
+
+
+class ExceptionCommand(Command):
+    def __init__(self, exception: Exception):
+        self.exception = exception
+
+    def exec(self, resource_manager: SharedResourcesManager):
+        return {'error': str(self.exception)}
 
 
 class SetCommand(Command):
@@ -189,7 +197,10 @@ class DictCommandMapper(CommandMapper):
 
     def map(self, package: Dict) -> Command:
         command_name = package.pop('cmd', None)
-        return self.commands_factory_map.get(command_name, self.UNKNOWN_COMMAND)(**package)
+        try:
+            return self.commands_factory_map.get(command_name, self.UNKNOWN_COMMAND)(**package)
+        except Exception as ex:
+            return ExceptionCommand(ex)
 
     def __call__(self, package: Dict) -> Command:
         return self.map(package)

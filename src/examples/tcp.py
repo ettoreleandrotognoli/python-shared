@@ -2,6 +2,8 @@ import json
 import multiprocessing
 import time
 
+from rx.testing import marbles
+m = marbles
 from pyshared.core.ref import DefaultSharedResourcesManager
 from pyshared.core.ref import ResourcesManagerListenerAdapter
 from pyshared.core.ref import default_command_mapper
@@ -23,7 +25,7 @@ def safe(func, handler=lambda e: None):
             return Observable.just(func(*args, **kwargs))
         except Exception as ex:
             handler(ex)
-            return Observable.empty()
+            return Observable.just(ex)
 
     return wrapper
 
@@ -46,23 +48,26 @@ def main():
     )
     manager = DefaultSharedResourcesManager({
         'number': 10,
+        'Observable': Observable
     }, listeners=[listener])
     pyshared = ReactiveSharedResourcesServer(manager)
 
     @fdebug
     def process_client(client: TCPServerConnection):
-        client.as_observable(pool_scheduler) \
-            .map(map_debug) \
-            .flat_map(safe(lambda e: e.decode('utf-8'), print)) \
-            .flat_map(safe(json.loads, print)) \
-            .map(default_command_mapper) \
-            .map(map_debug) \
-            .flat_map(pyshared) \
-            .map(map_debug) \
-            .map(json.dumps) \
-            .map(lambda e: e.encode('utf-8')) \
-            .map(map_debug) \
-            .subscribe(client)
+        try:
+            client.as_observable(pool_scheduler) \
+                .map(map_debug) \
+                .map(lambda e: e.decode('utf-8')) \
+                .map(json.loads) \
+                .map(default_command_mapper) \
+                .flat_map(pyshared) \
+                .map(json.dumps) \
+                .map(lambda e: e.encode('utf-8')) \
+                .map(map_debug) \
+                .retry() \
+                .subscribe(client)
+        except Exception as ex:
+            print(ex)
 
     server = TCPServer()
     server.connect(address, 0)
