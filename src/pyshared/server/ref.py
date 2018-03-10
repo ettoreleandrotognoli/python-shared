@@ -3,7 +3,7 @@ from typing import Iterator
 from typing import List
 from uuid import uuid4
 
-from pyshared.core.api import *
+from pyshared.server.api import *
 
 NOOP = lambda *args, **kwargs: None
 

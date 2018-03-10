@@ -2,11 +2,11 @@ import multiprocessing
 import time
 import unittest
 
-from pyshared.core.rx import TCPClient
-from pyshared.core.rx import TCPServer
-from pyshared.core.rx import TCPServerConnection
-from pyshared.core.utils import fdebug
-from pyshared.core.utils import map_debug
+from pyshared.client.rx import TCPClient
+from pyshared.common.utils import fdebug
+from pyshared.common.utils import map_debug
+from pyshared.server.rx import TCPServer
+from pyshared.server.rx import TCPServerConnection
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
 from rx.testing import marbles
