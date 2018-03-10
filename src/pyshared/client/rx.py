@@ -43,3 +43,43 @@ class TCPClient(Observer):
     @mdebug
     def on_error(self, error):
         print(error)
+
+
+class ResourceAdapter():
+    def __init__(self, manager, resource_name):
+        self.manager = manager
+        self.resource_name = resource_name
+
+    def __call__(self, *args, **kwargs):
+        package = dict(
+            cmd='call',
+            resource_name=self.resource_name,
+            args=args,
+            kwargs=kwargs
+        )
+
+
+class RemoteResourceManager():
+    def __init__(self, client_factory: TCPClient):
+        self.client_factory = client_factory
+
+    def __getitem__(self, item):
+        return ResourceAdapter(self, item)
+
+    def __setitem__(self, key, value):
+        package = dict(
+            resource_name=key,
+            value=value,
+            cmd='set'
+        )
+
+    def __delitem__(self, key):
+        package = dict(
+            resource_name=key,
+            cmd='del'
+        )
+
+    def __iter__(self):
+        package = dict(
+            cmd='list'
+        )
