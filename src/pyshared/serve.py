@@ -8,11 +8,11 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-from pyshared.core.ref import LocalSharedResourcesManager
-from pyshared.core.ref import default_command_mapper
-from pyshared.core.rx import ReactiveSharedResourcesServer
-from pyshared.core.rx import TCPServer
-from pyshared.core.utils import map_debug
+from pyshared.server.ref import LocalSharedResourcesManager
+from pyshared.server.ref import default_command_mapper
+from pyshared.server.rx import ReactiveSharedResourcesServer
+from pyshared.server.rx import TCPServer
+from pyshared.common.utils import map_debug
 from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
 
