@@ -2,7 +2,7 @@ import json
 import unittest
 
 from pyshared.core.ref import CallCommand
-from pyshared.core.ref import DefaultSharedResourcesManager
+from pyshared.core.ref import LocalSharedResourcesManager
 from pyshared.core.ref import DelCommand
 from pyshared.core.ref import ListCommand
 from pyshared.core.ref import SetCommand
@@ -15,7 +15,7 @@ class DefaultTest(unittest.TestCase):
     shared_resource = None
 
     def setUp(self):
-        self.shared_resource = DefaultSharedResourcesManager({
+        self.shared_resource = LocalSharedResourcesManager({
             'number': 10
         })
 
@@ -32,7 +32,7 @@ class ReactiveTest(unittest.TestCase):
     reactive_server = None
 
     def setUp(self):
-        self.reactive_server = ReactiveSharedResourcesServer(DefaultSharedResourcesManager({
+        self.reactive_server = ReactiveSharedResourcesServer(LocalSharedResourcesManager({
             'number': 10
         }))
 

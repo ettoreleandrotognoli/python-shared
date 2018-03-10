@@ -8,7 +8,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
-from pyshared.core.ref import DefaultSharedResourcesManager
+from pyshared.core.ref import LocalSharedResourcesManager
 from pyshared.core.ref import default_command_mapper
 from pyshared.core.rx import ReactiveSharedResourcesServer
 from pyshared.core.rx import TCPServer
@@ -43,7 +43,7 @@ def main(address: str, port: int,
          initial_values: Dict[str, object]):
     encode_func, decode_func = encoding
     from_pack, to_pack = package_parser
-    manager = DefaultSharedResourcesManager({
+    manager = LocalSharedResourcesManager({
         **dict((package, locate(package)) for package in initial_packages),
         **initial_values
     })

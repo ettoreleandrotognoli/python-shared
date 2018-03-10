@@ -99,7 +99,7 @@ class ResourceAdapter(object):
         return ResourceAdapter(key=self._key, parent_adapter=self, manager=self._manager, resource=attr_value)
 
 
-class DefaultSharedResourcesManager(BaseSharedResourcesManager):
+class LocalSharedResourcesManager(BaseSharedResourcesManager):
     def __init__(self, resources: Dict[str, object], listeners: List[ResourcesManagerListener] = None):
         super().__init__(listeners=listeners)
         self.resources = resources

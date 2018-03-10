@@ -5,7 +5,7 @@ import time
 from rx.testing import marbles
 
 m = marbles
-from pyshared.core.ref import DefaultSharedResourcesManager
+from pyshared.core.ref import LocalSharedResourcesManager
 from pyshared.core.ref import ResourcesManagerListenerAdapter
 from pyshared.core.ref import default_command_mapper
 from pyshared.core.rx import ReactiveSharedResourcesServer
@@ -47,7 +47,7 @@ def main():
         on_set_resource=debug('set'),
         on_error=debug('error')
     )
-    manager = DefaultSharedResourcesManager({
+    manager = LocalSharedResourcesManager({
         'number': 10,
         'Observable': Observable
     }, listeners=[listener])
