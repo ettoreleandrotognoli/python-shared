@@ -105,6 +105,10 @@ class DefaultSharedResourcesManager(BaseSharedResourcesManager):
         self.resources = resources
         self.fire_on_init(resources=self.resources)
 
+    def __del__(self):
+        self.fire_on_finish()
+        super().__del__()
+
     def __setitem__(self, key: str, value: object):
         old_value = self.resources.get(key, None)
         self.resources[key] = value

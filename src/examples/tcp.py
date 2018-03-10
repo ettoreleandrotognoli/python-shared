@@ -3,6 +3,7 @@ import multiprocessing
 import time
 
 from rx.testing import marbles
+
 m = marbles
 from pyshared.core.ref import DefaultSharedResourcesManager
 from pyshared.core.ref import ResourcesManagerListenerAdapter
@@ -74,13 +75,19 @@ def main():
     print("running at %s:%d" % (address, server.port))
     server.as_observable(pool_scheduler) \
         .subscribe(process_client)
+    return server, manager
 
 
 if __name__ == '__main__':
     try:
-        main()
+        server, manager = main()
+    except Exception as ex:
+        print(ex)
+        exit(-1)
+    try:
         while True:
             print('...')
             time.sleep(1)
-    except Exception as ex:
-        print(ex)
+    except KeyboardInterrupt as ex:
+        del manager
+        server.stop()
