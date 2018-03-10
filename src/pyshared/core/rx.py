@@ -5,6 +5,19 @@ from pyshared.core.api import *
 from pyshared.core.utils import mdebug
 from rx import Observable
 from rx import Observer
+from rx.internal import extensionmethod
+
+
+@extensionmethod(Observable)
+def safe_map(self, map_function, handler=lambda x: None):
+    def wrapper(*args, **kwargs):
+        try:
+            return Observable.just(map_function(*args, **kwargs))
+        except Exception as ex:
+            handler(ex)
+            return Observable.empty()
+
+    return self.flat_map(wrapper)
 
 
 class ReactiveSharedResourcesServer(object):

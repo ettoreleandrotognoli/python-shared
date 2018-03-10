@@ -59,13 +59,14 @@ def main(address: str, port: int,
             if not keep_connection:
                 observable_packages = observable_packages.first()
             result = observable_packages \
-                .map(decode_func) \
+                .safe_map(decode_func, print) \
                 .map(map_debug) \
-                .map(from_pack) \
-                .map(default_command_mapper) \
+                .safe_map(from_pack, print) \
+                .safe_map(default_command_mapper, print) \
                 .flat_map(shared_server) \
-                .map(to_pack) \
-                .map(encode_func) \
+                .safe_map(to_pack, print) \
+                .safe_map(encode_func, print) \
+                .safe_map(lambda e: e + delimiter, print) \
                 .map(map_debug)
 
             if not panic:
