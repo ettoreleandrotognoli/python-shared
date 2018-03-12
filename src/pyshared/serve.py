@@ -8,41 +8,29 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 
+from pyshared.common.encoding import parse_encoding
+from pyshared.common.package import parse_parser
+from pyshared.common.rx import BuffAndSplit
+from pyshared.common.utils import map_debug
 from pyshared.server.ref import LocalSharedResourcesManager
 from pyshared.server.ref import default_command_mapper
 from pyshared.server.rx import ReactiveSharedResourcesServer
 from pyshared.server.rx import TCPServer
-from pyshared.common.utils import map_debug
-from rx import Observable
 from rx.concurrency import ThreadPoolScheduler
 
 
-class BuffAndSplit(object):
-    def __init__(self, delimiter=b'\r\n', initial=b''):
-        self.delimiter = delimiter
-        self.buffer = initial
-
-    def __call__(self, e):
-        self.buffer += e
-        if self.delimiter not in self.buffer:
-            return Observable.empty()
-        packages = self.buffer.split(self.delimiter)
-        self.buffer = packages[-1]
-        return Observable.from_(packages[:-1])
-
-
-def main(address: str, port: int,
-         server_factory,
-         keep_connection: bool,
-         panic: bool,
-         encoding: Tuple[callable, callable],
-         package_parser: Tuple[callable, callable],
-         delimiter: bytes,
-         workers: int,
-         initial_packages: List[str],
-         initial_values: Dict[str, object]):
+def main(address: str = '0.0.0.0', port: int = 0,
+         server_factory=TCPServer,
+         keep_connection: bool = False,
+         panic: bool = False,
+         delimiter: bytes = b'\r\n',
+         workers: int = 2,
+         initial_packages: List[str] = [],
+         initial_values: Dict[str, object] = dict(),
+         encoding: Tuple[callable, callable] = parse_encoding('utf-8'),
+         package_parser: Tuple[callable, callable] = parse_parser('json')):
     encode_func, decode_func = encoding
-    from_pack, to_pack = package_parser
+    to_pack, from_pack = package_parser
     manager = LocalSharedResourcesManager({
         **dict((package, locate(package)) for package in initial_packages),
         **initial_values
@@ -81,6 +69,7 @@ def main(address: str, port: int,
     print(address, server.port)
     server.as_observable(pool_scheduler) \
         .subscribe(accept_client)
+    return server
 
 
 def wait_exit():
@@ -89,19 +78,6 @@ def wait_exit():
             time.sleep(1)
     except KeyboardInterrupt:
         return
-
-
-parsers = {
-    'json': (json.loads, json.dumps)
-}
-
-
-def parse_parser(name):
-    return parsers[name]
-
-
-def parse_encoding(name):
-    return lambda e: e.encode(name), lambda e: e.decode(name)
 
 
 if __name__ == '__main__':
